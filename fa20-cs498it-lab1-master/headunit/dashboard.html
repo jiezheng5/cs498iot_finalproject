@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+
+<head>
+  <title>Car Dashboard</title>
+  
+  <!-- Uses CSS grid to setup a 4wx5h grid for the various elements
+       H = Header, V = Video, D = Distance, B = Brake, L = Message Log
+       | |H|H|H|
+       | |V|V| |
+       | |V|V| |
+       | |D|B| |
+       | |L|L| |
+  -->
+
+  <style>
+      * {
+	font-family: "Lucida Console", Monaco, monospace;
+    }
+    
+    .grid-container {
+	display: grid;
+	grid-gap: 20px;
+    }
+
+    #header {
+	grid-column: 2 / 5;
+	grid-row: 1;
+    }
+
+    #video {
+	height:500px;
+	grid-column: 2 / 4;
+	grid-row: 2 / 3;
+    }
+    #distance {
+	grid-column: 2;
+	grid-row: 4;
+	height:50px;
+	
+    } 
+    #brake {
+	grid-column: 3;
+	grid-row: 4;
+	height: 50px;
+
+    }
+
+    #fps {
+	grid-column: 4;
+	grid-row: 4;
+	height: 50px;
+    }
+
+    #msg-log {
+	grid-column: 2 / 4;
+	grid-row: 5;
+    }
+
+    #msg-log h3 {
+	margin-bottom: 0px;
+    }
+
+    #msg-log-data {
+	height: 100px;
+	overflow-y: auto;
+    }
+    #msg-log-data p {
+	font-size: xx-small;
+	line-height: 0px;
+    }
+  </style>
+
+</head>
+
+
+<body>
+  <div class="grid-container">
+    <h1 id="header">Car Dashboard</h1>
+    <img id="video"></img>
+
+
+    <div id="distance">
+      <h3>Distance</h3>
+      <div id="dist-val"></div>
+    </div>
+
+    <div id="brake">
+      <h3>Brake</h3>
+      <div id="brake-val"></div>
+    </div>
+
+    <div id="fps">
+      <h3>FPS (every 5 frames)</h3>
+      <div id="fps-val"></div>
+    </div>
+
+
+    <div id="msg-log">
+      <h3>Message Log</h3>
+      <div id="msg-log-data"></div>
+      <div>
+  </div>
+
+      <script>
+	/* Appends incoming message to #msg-log-data */ 
+	function appendMsgLog(strMsg) {
+	    let doc = document.getElementById("msg-log-data");
+	    let newLine = document.createElement("p");
+	    newLine.textContent = new Date().toLocaleString() + ": " + strMsg;
+	    doc.appendChild(newLine);
+	    //scroll to bottom
+	    doc.scrollTop = doc.scrollHeight;
+	}
+
+	/* Sets the display in centimeters and logs it*/
+	function setDistance(dist_cm) {
+	    appendMsgLog("Distance set to " + dist_cm);
+ 	    let distValEle = document.getElementById("dist-val");
+	    distValEle.textContent = dist_cm;
+	}
+
+	/* Sets the brake status and logs it */
+	function setBrake(brake_status) {
+	    appendMsgLog("Brake set to " + brake_status );
+ 	    let brakeValEle = document.getElementById("brake-val");
+	    brakeValEle.textContent = brake_status;
+	}
+
+	function setFps(fps) {
+ 	    let fpsEle = document.getElementById("fps-val");
+	    fpsEle.textContent = fps;
+	}
+
+	function main() {
+	    let frameEvents = [];
+	    let oldFrame = 0;
+	    let newFrame = 0;
+	    setFps(0);
+	    ws = new WebSocket("ws://10.0.0.3:9000");
+	    ws.onmessage = function(event) {
+	        // if it's an object, it's a message with a binary png
+	        // otherwise it's a json string with brake and distance
+	        if (typeof(event.data) === 'object') {
+	    	    let img = document.getElementById('video');
+	    	    let urlObject = URL.createObjectURL(event.data)
+	    	    img.src = urlObject;
+	    	    appendMsgLog("Image received");
+		    // FPS monitoring
+		    newFrame = performance.now()
+		    frameEvents.push(newFrame - oldFrame);
+		    oldFrame = newFrame;
+		    // Update the frame rate every five frames based on the rate over those five
+		    if (frameEvents.length > 5) {
+		        let t = frameEvents.pop() + frameEvents.pop() +
+			    frameEvents.pop() + frameEvents.pop() + frameEvents.pop();
+			let fps = 1/(t/5/1000)
+			let roundedFps = (Math.round(fps * 100) / 100).toFixed(2);
+			setFps(roundedFps);
+		    }
+	        }
+	        else {
+	    	    let map = JSON.parse(event.data);
+	    	    setBrake(map.brake);
+	    	    setDistance(map.distance);
+	        }
+	    }
+	}
+	main();
+      </script>
+
+      
+  
+</body>
