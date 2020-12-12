@@ -28,10 +28,10 @@ async def producer_handler(websocket, path):
 
         await websocket.send(message_dict['image']) # Will send as arrayBuffer
         
-#        msg_json_str = json.dumps({'brake' : message_dict['brake'],
-#                                   'distance': message_dict['distance']})
-        msg_json_str = json.dumps({'brake' : "brake message",
-                                   'distance': "distance message"})
+        msg_json_str = json.dumps({'brake' : message_dict['brake'],
+                                   'distance': message_dict['distance']})
+#        msg_json_str = json.dumps({'brake' : "brake message",
+#                                   'distance': "distance message"})
         
         await websocket.send(msg_json_str)
 

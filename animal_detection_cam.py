@@ -13,6 +13,7 @@ import time
 import cv2
 from picamera.array import PiRGBArray
 from picamera import PiCamera
+from picamera import PiCameraCircularIO
 
 # Tensorflow imports
 #import tensorflow as tf
@@ -72,6 +73,9 @@ PATH_TO_LABELS = os.path.join('object_detection', 'data', 'mscoco_label_map.pbtx
 sys.path.append('')
 category_index = label_map_util.create_category_index_from_labelmap(PATH_TO_LABELS, use_display_name=True)
 
+recording_folder='/home/pi/final_project/v1/fa20-cs498it-lab1-master/recordings'
+if not os.path.exists(recording_folder):
+    os.makedirs(recording_folder)
 
 def run_inference_for_single_image(image, graph_ops, sess):
     '''
@@ -131,7 +135,7 @@ class TensorCamera:
         self.IM_WIDTH = width
         self.IMG_HEIGHT = height
         self.objectsOfInterest=['person','bird','cat','dog','horse','sheep','cow','bear','teddy bear']
-        self.minScore=0.20
+        self.minScore=0.40
         ipv4 = os.popen('ip addr show eth0').read().split("inet ")[1].split("/")[0]
         self.camId=ipv4[-3:]
         self.imageSaveDeltaSeconds=10
@@ -156,6 +160,12 @@ class TensorCamera:
         self.tf_session = tf.Session(graph=self.graph)
 
         self.camera = PiCamera(resolution = (width, height), framerate = 30)
+        
+        #Brittany added for circular stream
+        self.stream=PiCameraCircularIO(self.camera, seconds=5) #self.videoLoopSeconds)
+        #self.camera.stop_recording()
+        self.camera.start_recording(self.stream, format='h264')
+        
         # Capture and set all to zero to get a blank array of the right size
         self._frame = PiRGBArray(self.camera, size=(width, height))
         self._frame.truncate(0)
@@ -184,6 +194,7 @@ class TensorCamera:
         # print(output_dict['detection_classes'])
         now=datetime.now()
         dateString=now.strftime("%Y%m%d%H%M%S")
+        #timeString_return=now.strftime("%Y/%m/%d%H%M%S")
         detectionString=''
         for i,score in enumerate(output_dict['detection_scores']):
             if score >= self.minScore:
@@ -191,13 +202,15 @@ class TensorCamera:
                 dname=category_index[detectionClass]['name']
                 print(dname, score)
                 detectionString+=dname+'_'
-        print(dateString, detectionString)
-        fname=dateString+detectionString
+        #print(dateString, detectionString)
+        fname=dateString+detectionString+self.camId
         if detectionString:
+            print(dateString, detectionString)
             #if enough time has elapsed save an image
             if time.time()-self.lastImageSaveTime>self.imageSaveDeltaSeconds:
                 self.lastImageSaveTime=time.time()
                 #save an image
+                self.camera.capture(recording_folder+'/'+fname+'.jpg')                
                 print('time to save an image add the code')
             #if the video loop flag is unset and enough time has passed set it
             #don't actually save the video here
@@ -209,9 +222,9 @@ class TensorCamera:
         #lets save a video if it's time
         if self.videoLoopFlag and (time.time()>self.saveVideoAtTime):
             self.videoLoopFlag=0
-            
-            print('time to save a video   ',self.videoName)
-                    
+            #camera.wait_recording(self.videoLoopSeconds)
+            self.stream.copy_to(recording_folder+'/'+self.videoName+'.h264')
+            print('time to save a video   ',self.videoName)                  
             
         
         # Draw labeled bounding boxes for any detected objects whose score is greater than 0.3
@@ -254,8 +267,14 @@ class TensorCamera:
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         (_, buf) = cv2.imencode('.png', rgb_frame)
 
+
+        if detectionString:
+            break_string=detectionString.replace('_', ' ') 
+        else:
+            break_string='NA'
+
         # return the dashboard payload
         return {'image': buf.tobytes(),
                 'distance': "",
-                'brake': detectionString}
+                'brake': break_string}
 
