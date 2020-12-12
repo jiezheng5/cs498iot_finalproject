@@ -6,6 +6,8 @@ import os
 import six.moves.urllib as urllib
 import sys
 import tarfile
+from datetime import datetime
+import time
 
 # PiCamera imports
 import cv2
@@ -128,6 +130,17 @@ class TensorCamera:
         font = cv2.FONT_HERSHEY_SIMPLEX
         self.IM_WIDTH = width
         self.IMG_HEIGHT = height
+        self.objectsOfInterest=['person','bird','cat','dog','horse','sheep','cow','bear','teddy bear']
+        self.minScore=0.20
+        ipv4 = os.popen('ip addr show eth0').read().split("inet ")[1].split("/")[0]
+        self.camId=ipv4[-3:]
+        self.imageSaveDeltaSeconds=10
+        self.videoLoopSeconds=5
+        self.videoPreRecordSeconds=1.5
+        self.lastImageSaveTime=time.time()
+        self.lastVideoSaveTime=time.time()
+        self.saveVideoAtTime=time.time()
+        self.videoLoopFlag=0 # used  to indicate that the current stream will need to be recorded
  
         # load in the graph and muddle with the default graph
         # this setup allows the same session to be used throughout
@@ -165,6 +178,42 @@ class TensorCamera:
         graph_ops = self.graph.get_operations()
         with self.graph.as_default():
             output_dict = run_inference_for_single_image(frame, graph_ops, self.tf_session)
+        
+        # print(category_index)
+        # print(output_dict['detection_scores'])
+        # print(output_dict['detection_classes'])
+        now=datetime.now()
+        dateString=now.strftime("%Y%m%d%H%M%S")
+        detectionString=''
+        for i,score in enumerate(output_dict['detection_scores']):
+            if score >= self.minScore:
+                detectionClass=output_dict['detection_classes'][i]
+                dname=category_index[detectionClass]['name']
+                print(dname, score)
+                detectionString+=dname+'_'
+        print(dateString, detectionString)
+        fname=dateString+detectionString
+        if detectionString:
+            #if enough time has elapsed save an image
+            if time.time()-self.lastImageSaveTime>self.imageSaveDeltaSeconds:
+                self.lastImageSaveTime=time.time()
+                #save an image
+                print('time to save an image add the code')
+            #if the video loop flag is unset and enough time has passed set it
+            #don't actually save the video here
+            if not self.videoLoopFlag:
+                if time.time()-self.lastVideoSaveTime>self.videoLoopSeconds:
+                    self.videoLoopFlag=1
+                    self.saveVideoAtTime=time.time()+(self.videoLoopSeconds-self.videoPreRecordSeconds)
+                    self.videoName=dateString+detectionString+self.camId
+        #lets save a video if it's time
+        if self.videoLoopFlag and (time.time()>self.saveVideoAtTime):
+            self.videoLoopFlag=0
+            
+            print('time to save a video   ',self.videoName)
+                    
+            
+        
         # Draw labeled bounding boxes for any detected objects whose score is greater than 0.3
         vis_util.visualize_boxes_and_labels_on_image_array(
             frame,
@@ -207,6 +256,6 @@ class TensorCamera:
 
         # return the dashboard payload
         return {'image': buf.tobytes(),
-                'distance': "distanced cm",
-                'brake': brake}
+                'distance': "",
+                'brake': detectionString}
 
