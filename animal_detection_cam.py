@@ -25,9 +25,6 @@ from object_detection.utils import ops as utils_ops
 from object_detection.utils import label_map_util
 from object_detection.utils import visualization_utils as vis_util
 
-# Distance and brake triggering
-from sensors import Sensors
-
 
 # Ensure that model related resources are on the system path for pthon to find
 PATH_TO_MODELS_RESEARCH = "/home/pi/models/research"
@@ -36,7 +33,8 @@ sys.path.append(PATH_TO_MODELS_RESEARCH)
 
 # The model we're using for this object detection application.
 # Chosen because it's very lightweight (as object detection models go) and is trained on low-res images.
-MODEL_NAME = 'ssdlite_mobilenet_v2_coco_2018_05_09'
+#MODEL_NAME = 'ssdlite_mobilenet_v2_coco_2018_05_09'
+MODEL_NAME='ssd_mobilenet_v1_coco_2017_11_17'
 MODEL_FILE = MODEL_NAME + '.tar.gz'
 
 
@@ -130,7 +128,7 @@ class TensorCamera:
         font = cv2.FONT_HERSHEY_SIMPLEX
         self.IM_WIDTH = width
         self.IMG_HEIGHT = height
-        self.sensor = Sensors()
+ 
         # load in the graph and muddle with the default graph
         # this setup allows the same session to be used throughout
         # tf_session is *not* thread-safe
@@ -188,7 +186,7 @@ class TensorCamera:
         # putting this in the main loop and requiring it for every frame
         # could faster, but this is low hanging fruit. Does not respond
         # well to network hiccups
-        distance = self.sensor.find_distance()
+ 
 
         # Update the brake based on the detection and distance logic
         # send_brake does not send a signal to the light if not needed (i.e. no state change)
@@ -198,10 +196,7 @@ class TensorCamera:
         #       we could make the score threshold based on the object distance, or store the last distance measurement
         #       or two (using variables on our TensorCamera class) to determine whether and how fast an object was
         #       approaching.
-        if distance < 100 and any(output_dict['detection_scores']) > 0.3:
-            brake = self.sensor.send_brake(True)
-        else:
-            brake = self.sensor.send_brake(False)
+        brake='break string'
              
         self._frame.truncate(0)
 
@@ -212,6 +207,6 @@ class TensorCamera:
 
         # return the dashboard payload
         return {'image': buf.tobytes(),
-                'distance': str(distance) + " cm",
+                'distance': "distanced cm",
                 'brake': brake}
 
